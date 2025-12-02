@@ -1,0 +1,469 @@
+﻿@model List<Proyecto_Cafeteria_240284.Models.Productos>
+
+@{
+    ViewData["Title"] = "Productos Cafetería ThreeBook346816";
+}
+
+<!-- Encabezado y buscador -->
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h2>Cafetería ThreeBook345816</h2>
+        </div>
+        <div class="col-md-6 text-end">
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalProducto" onclick="nuevoProducto()">
+                <i class="fas fa-plus"></i> Nuevo Producto
+            </button>
+        </div>
+    </div>
+
+    <!-- Buscador -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" id="txtBuscador" class="form-control" placeholder="Buscar producto por nombre..." onkeyup="filtrarProductos()">
+            </div>
+        </div>
+        <div class="col-md-6 text-end">
+            <span class="badge bg-primary" id="totalProductos">Total: @Model.Count productos</span>
+        </div>
+    </div>
+
+    <!-- Cards de Productos -->
+    <div class="row" id="contenedorProductos">
+        @foreach (var producto in Model)
+        {
+            <div class="col-md-4 col-lg-3 mb-4 producto-card" data-nombre="@producto.Nombre.ToLower()">
+                <div class="card h-100 shadow-sm">
+                    <!-- Imagen del producto -->
+                    <img src="@(string.IsNullOrEmpty(producto.ImagenBase64)
+                                     ? producto.ImagenUrl
+                                     : producto.ImagenBase64)"
+                     class="card-img-top"
+                     alt="@producto.Nombre"
+                     style="height: 200px; object-fit: cover;">
+
+                    <div class="card-body">
+                        <h5 class="card-title">@producto.Nombre</h5>
+                        <p class="card-text text-muted" style="font-size: 0.9rem; height: 60px; overflow: hidden;">
+                            @producto.Descripcion
+                        </p>
+                        <div class="mb-2">
+                            <span class="badge bg-success" style="font-size: 1rem;">$@producto.Precio.ToString("N2")</span>
+                            <span class="badge bg-info">Stock: @producto.Stock</span>
+                        </div>
+                    </div>
+
+                    <div class="card-footer bg-transparent">
+                        <button class="btn btn-warning btn-sm w-100 mb-2" onclick="editarProducto(@producto.Id)">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        <button class="btn btn-danger btn-sm w-100" onclick="eliminarProducto(@producto.Id, '@producto.Nombre')">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Mensaje si no hay productos -->
+    <div class="row" id="sinResultados" style="display: none;">
+        <div class="col-12 text-center">
+            <div class="alert alert-warning">
+                <i class="fas fa-search"></i> No se encontraron productos con ese nombre.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Crear/Editar Producto -->
+<div class="modal fade" id="modalProducto" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloModal">Nuevo Producto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formProducto" enctype="multipart/form-data">
+                    <input type="hidden" id="productoId" name="Id" value="0">
+
+                    <div class="row">
+                        <!-- Columna izquierda -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="nombre" class="form-label">Nombre del Producto</label>
+                                <input type="text" class="form-control" id="nombre" name="Nombre" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="descripcion" class="form-label">Descripción</label>
+                                <textarea class="form-control" id="descripcion" name="Descripcion" rows="3" required></textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="precio" class="form-label">Precio</label>
+                                <input type="number" class="form-control" id="precio" name="Precio" step="0.01" min="0" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="stock" class="form-label">Stock</label>
+                                <input type="number" class="form-control" id="stock" name="Stock" min="0" required>
+                            </div>
+                        </div>
+
+                        <!-- Columna derecha - Imagen -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="imagenArchivo" class="form-label">Imagen del Producto</label>
+                                <input type="file" class="form-control" id="imagenArchivo" name="ImagenArchivo" accept="image/*" onchange="previsualizarImagen(event)">
+                                <small class="text-muted">Formatos: JPG, PNG, GIF (Max 5MB)</small>
+                            </div>
+
+                            <!-- Vista previa de la imagen -->
+                            <div class="text-center">
+                                <img id="imagenPreview" src="" alt="Vista previa" style="max-width: 100%; max-height: 250px; display: none; border: 2px solid #ddd; padding: 5px; border-radius: 5px;">
+                                <input type="hidden" id="imagenBase64Actual" name="ImagenBase64">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarProducto()">
+                    <i class="fas fa-save"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @if (TempData["LoginSuccess"] != null)
+    {
+        <text>
+            <script>
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Bienvenido!',
+                    text: 'Inicio de sesión exitoso.',
+                    timer: 2000,
+                    showConfirmButton: false,
+                    timerProgressBar: true
+                });
+            </script>
+        </text>
+    }
+
+
+    <!-- Librería SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
+    <script>
+        // Variable para almacenar todos los productos
+        let productosOriginales = @Html.Raw(Json.Serialize(Model));
+
+        // Función para filtrar productos por nombre
+        function filtrarProductos() {
+            const buscador = document.getElementById('txtBuscador').value.toLowerCase();
+            const cards = document.querySelectorAll('.producto-card');
+            let productosVisibles = 0;
+
+            cards.forEach(card => {
+                const nombreProducto = card.getAttribute('data-nombre');
+                if (nombreProducto.includes(buscador)) {
+                    card.style.display = 'block';
+                    productosVisibles++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            // Mostrar mensaje si no hay resultados
+            document.getElementById('sinResultados').style.display = productosVisibles === 0 ? 'block' : 'none';
+            document.getElementById('totalProductos').textContent = `Total: ${productosVisibles} productos`;
+        }
+
+        // Función para nuevo producto
+        function nuevoProducto() {
+            document.getElementById('tituloModal').textContent = 'Nuevo Producto';
+            document.getElementById('formProducto').reset();
+            document.getElementById('productoId').value = '0';
+            document.getElementById('imagenPreview').style.display = 'none';
+            document.getElementById('imagenBase64Actual').value = '';
+        }
+
+        // Función para previsualizar imagen
+        function previsualizarImagen(event) {
+            const file = event.target.files[0];
+            const preview = document.getElementById('imagenPreview');
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Función para guardar producto (crear o editar)
+        function guardarProducto() {
+            const formData = new FormData(document.getElementById('formProducto'));
+
+            // Validar campos obligatorios
+            const nombre = document.getElementById('nombre').value.trim();
+            const precio = document.getElementById('precio').value;
+            const stock = document.getElementById('stock').value;
+
+            if (!nombre || !precio || !stock) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Campos incompletos',
+                    text: 'Por favor complete todos los campos obligatorios',
+                    iconHtml: '⚠️',
+                    confirmButtonText: 'Entendido',
+                    confirmButtonColor: '#ffc107',
+                    customClass: {
+                        icon: 'swal-icon-custom'
+                    }
+                });
+                return;
+            }
+
+            // Mostrar indicador de carga
+            Swal.fire({
+                title: 'Guardando...',
+                text: 'Por favor espere',
+                iconHtml: '⏳',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                willOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            fetch('@Url.Action("Guardar", "Productos")', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Éxito!',
+                        text: 'Producto guardado exitosamente',
+                        iconHtml: '✅',
+                        confirmButtonText: 'Aceptar',
+                        confirmButtonColor: '#28a745',
+                        customClass: {
+                            icon: 'swal-icon-custom'
+                        }
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.mensaje || 'No se pudo guardar el producto',
+                        iconHtml: '❌',
+                        confirmButtonText: 'Aceptar',
+                        confirmButtonColor: '#dc3545',
+                        customClass: {
+                            icon: 'swal-icon-custom'
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al guardar: ' + error,
+                    iconHtml: '❌',
+                    confirmButtonText: 'Aceptar',
+                    confirmButtonColor: '#dc3545',
+                    customClass: {
+                        icon: 'swal-icon-custom'
+                    }
+                });
+            });
+        }
+
+        // Función para editar producto
+        function editarProducto(id) {
+            fetch(`@Url.Action("ObtenerProducto", "Productos")?Id=${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const producto = data.producto;
+
+                        document.getElementById('tituloModal').textContent = 'Editar Producto';
+                        document.getElementById('productoId').value = producto.id;
+                        document.getElementById('nombre').value = producto.nombre;
+                        document.getElementById('descripcion').value = producto.descripcion;
+                        document.getElementById('precio').value = producto.precio;
+                        document.getElementById('stock').value = producto.stock;
+
+                        // Mostrar imagen actual
+                        const preview = document.getElementById('imagenPreview');
+                        preview.src = producto.imagenBase64;
+                        preview.style.display = 'block';
+                        document.getElementById('imagenBase64Actual').value = producto.imagenBase64;
+
+                        // Abrir modal
+                        new bootstrap.Modal(document.getElementById('modalProducto')).show();
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.mensaje,
+                            iconHtml: '❌',
+                            confirmButtonText: 'Aceptar',
+                            confirmButtonColor: '#dc3545',
+                            customClass: {
+                                icon: 'swal-icon-custom'
+                            }
+                        });
+                    }
+                })
+                .catch(error => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error al obtener producto: ' + error,
+                        iconHtml: '❌',
+                        confirmButtonText: 'Aceptar',
+                        confirmButtonColor: '#dc3545',
+                        customClass: {
+                            icon: 'swal-icon-custom'
+                        }
+                    });
+                });
+        }
+
+        // Función para eliminar producto
+        function eliminarProducto(id, nombre) {
+            Swal.fire({
+                title: '¿Está seguro?',
+                text: `¿Desea eliminar el producto "${nombre}"?`,
+                icon: 'warning',
+                iconHtml: '🗑️',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                customClass: {
+                    icon: 'swal-icon-custom'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const formData = new FormData();
+                    formData.append('Id', id);
+
+                    fetch('@Url.Action("Eliminar", "Productos")', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: '¡Eliminado!',
+                                text: data.mensaje,
+                                iconHtml: '✅',
+                                confirmButtonText: 'Aceptar',
+                                confirmButtonColor: '#28a745',
+                                customClass: {
+                                    icon: 'swal-icon-custom'
+                                }
+                            }).then(() => {
+                                location.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: data.mensaje,
+                                iconHtml: '❌',
+                                confirmButtonText: 'Aceptar',
+                                confirmButtonColor: '#dc3545',
+                                customClass: {
+                                    icon: 'swal-icon-custom'
+                                }
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Error al eliminar: ' + error,
+                            iconHtml: '❌',
+                            confirmButtonText: 'Aceptar',
+                            confirmButtonColor: '#dc3545',
+                            customClass: {
+                                icon: 'swal-icon-custom'
+                            }
+                        });
+                    });
+                }
+            });
+        }
+    </script>
+}
+
+<style>
+    .card {
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2) !important;
+        }
+
+    .card-img-top {
+        border-bottom: 2px solid #f0f0f0;
+    }
+
+    .card-title {
+        color: #333;
+        font-weight: bold;
+        min-height: 50px;
+    }
+
+    .btn-sm {
+        font-size: 0.85rem;
+    }
+
+    .input-group-text {
+        background-color: #f8f9fa;
+    }
+
+    #imagenPreview {
+        object-fit: contain;
+        background-color: #f8f9fa;
+    }
+
+    .producto-card {
+        transition: opacity 0.3s;
+    }
+
+    /* Estilo personalizado para el ícono de SweetAlert */
+    .swal-icon-custom {
+        font-size: 2.5rem;
+        border: none !important;
+    }
+</style>
