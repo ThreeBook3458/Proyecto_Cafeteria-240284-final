@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Proyecto_Cafeteria_240284.Data;
 using Proyecto_Cafeteria_240284.Models;
 using System;
 using System.IO;
@@ -10,56 +12,14 @@ namespace Proyecto_Cafeteria_240284.Controllers
 {
     public class ProductosController : Controller
     {
-        private static List<Productos> _lstProductos = new List<Productos>
-        {
-            new Productos
-            {
-                Id = 1,
-                Nombre = "Café Americano",
-                Descripcion = "Café espresso diluido con agua caliente, intenso y aromático",
-                Precio = 35,
-                Stock = 10,
-                ImagenUrl = "/images/CafeAmericano.jpg"
-            },
-            new Productos
-            {
-                Id = 2,
-                Nombre = "Cappuccino",
-                Descripcion = "Espresso con leche vaporizada y espuma cremosa",
-                Precio = 45,
-                Stock = 80,
-                ImagenUrl = "/images/cappuccinoAmericano.jpg"
-            },
-            new Productos
-            {
-                Id = 3,
-                Nombre = "Latte",
-                Descripcion = "Café espresso con abundante leche cremosa",
-                Precio = 48,
-                Stock = 75,
-                ImagenUrl = "/images/Latte.jpg"
-            },
-            new Productos
-            {
-                Id = 4,
-                Nombre = "Moka",
-                Descripcion = "Deliciosa mezcla de café, chocolate y leche",
-                Precio = 52,
-                Stock = 60,
-                ImagenUrl = "/images/Moka.jpg"
-            },
-            new Productos
-            {
-                Id = 5,
-                Nombre = "Matcha",
-                Descripcion = "Té de hierbas verdes con hielos",
-                Precio = 120,
-                Stock = 25,
-                ImagenUrl = "/images/Matcha.jpg"
-            }
-        };
+        private readonly CafeteriaContext _context;
 
-        public IActionResult Index()
+        public ProductosController(CafeteriaContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<IActionResult> Index()
         {
             var usuario = HttpContext.Session.GetString("User");
             if (string.IsNullOrEmpty(usuario))
@@ -67,7 +27,8 @@ namespace Proyecto_Cafeteria_240284.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            return View(_lstProductos);
+            var productos = await _context.Productos.ToListAsync();
+            return View(productos);
         }
 
         // Método para generar imágenes SVG por defecto
@@ -99,20 +60,18 @@ namespace Proyecto_Cafeteria_240284.Controllers
                 if (producto.Id == 0)
                 {
                     // Crear nuevo producto
-                    producto.Id = _lstProductos.Any() ? _lstProductos.Max(p => p.Id) + 1 : 1;
-
                     // Si no tiene imagen, asignar una por defecto
                     if (string.IsNullOrEmpty(producto.ImagenBase64))
                     {
                         producto.ImagenBase64 = GenerarImagenSVG("📦", "#808080");
                     }
 
-                    _lstProductos.Add(producto);
+                    _context.Productos.Add(producto);
                 }
                 else
                 {
                     // Editar producto existente
-                    var existente = _lstProductos.FirstOrDefault(p => p.Id == producto.Id);
+                    var existente = await _context.Productos.FindAsync(producto.Id);
                     if (existente != null)
                     {
                         existente.Nombre = producto.Nombre;
@@ -128,7 +87,10 @@ namespace Proyecto_Cafeteria_240284.Controllers
                     }
                 }
 
-                return Json(new { success = true, lista = _lstProductos });
+                await _context.SaveChangesAsync();
+                var lista = await _context.Productos.ToListAsync();
+
+                return Json(new { success = true, lista = lista });
             }
             catch (Exception ex)
             {
@@ -137,12 +99,13 @@ namespace Proyecto_Cafeteria_240284.Controllers
         }
 
         [HttpPost]
-        public JsonResult Eliminar(int Id)
+        public async Task<JsonResult> Eliminar(int Id)
         {
-            var producto = _lstProductos.FirstOrDefault(p => p.Id == Id);
+            var producto = await _context.Productos.FindAsync(Id);
             if (producto != null)
             {
-                _lstProductos.Remove(producto);
+                _context.Productos.Remove(producto);
+                await _context.SaveChangesAsync();
                 return Json(new { success = true, mensaje = $"Se eliminó correctamente el producto '{producto.Nombre}'." });
             }
             return Json(new { success = false, mensaje = "No se encontró el producto a eliminar." });
@@ -175,9 +138,9 @@ namespace Proyecto_Cafeteria_240284.Controllers
 
         // Método para obtener un producto por ID (para editar)
         [HttpGet]
-        public JsonResult ObtenerProducto(int Id)
+        public async Task<JsonResult> ObtenerProducto(int Id)
         {
-            var producto = _lstProductos.FirstOrDefault(p => p.Id == Id);
+            var producto = await _context.Productos.FindAsync(Id);
             if (producto != null)
             {
                 return Json(new { success = true, producto = producto });
@@ -186,18 +149,26 @@ namespace Proyecto_Cafeteria_240284.Controllers
         }
 
         // Método para reiniciar datos a valores por defecto
-        public JsonResult ReiniciarDatos()
+        public async Task<JsonResult> ReiniciarDatos()
         {
-            _lstProductos = new List<Productos>
+            // Eliminar todos los productos existentes
+            _context.Productos.RemoveRange(_context.Productos);
+
+            // Agregar productos por defecto
+            var productosDefault = new List<Productos>
             {
-                new Productos { Id = 1, Nombre = "Café Americano", Descripcion = "Café espresso diluido con agua caliente", Precio = 35.00M, Stock = 100, ImagenUrl ="/images/CafeAmericano.jpg" },
-                new Productos { Id = 2, Nombre = "Cappuccino", Descripcion = "Espresso con leche vaporizada y espuma", Precio = 45.00M, Stock = 80, ImagenUrl ="/images/capuccinoAmericano.jpg" },
-                new Productos { Id = 3, Nombre = "Latte", Descripcion = "Café espresso con abundante leche", Precio = 48.00M, Stock = 75, ImagenUrl ="/images/Latte.jpg" },
-                new Productos { Id = 4, Nombre = "Moka", Descripcion = "Mezcla de café, chocolate y leche", Precio = 52.00M, Stock = 60, ImagenUrl ="/images/Moka.jpg" },
-                new Productos { Id = 5, Nombre = "Matcha", Descripcion = "Té de hierbas verdes con hielos", Precio = 120, Stock = 25, ImagenUrl = "/images/Matcha.jpg"}
+                new Productos { Nombre = "Café Americano", Descripcion = "Café espresso diluido con agua caliente", Precio = 35.00M, Stock = 100, ImagenUrl ="/images/CafeAmericano.jpg" },
+                new Productos { Nombre = "Cappuccino", Descripcion = "Espresso con leche vaporizada y espuma", Precio = 45.00M, Stock = 80, ImagenUrl ="/images/cappuccinoAmericano.jpg" },
+                new Productos { Nombre = "Latte", Descripcion = "Café espresso con abundante leche", Precio = 48.00M, Stock = 75, ImagenUrl ="/images/Latte.jpg" },
+                new Productos { Nombre = "Moka", Descripcion = "Mezcla de café, chocolate y leche", Precio = 52.00M, Stock = 60, ImagenUrl ="/images/Moka.jpg" },
+                new Productos { Nombre = "Matcha", Descripcion = "Té de hierbas verdes con hielos", Precio = 120, Stock = 25, ImagenUrl = "/images/Matcha.jpg"}
             };
 
-            return Json(new { success = true, mensaje = "Datos reiniciados correctamente", lista = _lstProductos });
+            _context.Productos.AddRange(productosDefault);
+            await _context.SaveChangesAsync();
+
+            var lista = await _context.Productos.ToListAsync();
+            return Json(new { success = true, mensaje = "Datos reiniciados correctamente", lista = lista });
         }
     }
 }

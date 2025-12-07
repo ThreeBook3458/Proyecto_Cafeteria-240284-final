@@ -1,40 +1,49 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Proyecto_Cafeteria_240284.Data;
 using Proyecto_Cafeteria_240284.Models;
 
 namespace Proyecto_Cafeteria_240284.Controllers
 {
     public class AccountController : Controller
     {
-        // GET: /Account/Login
-        public ActionResult Login()
+        private readonly CafeteriaContext _context;
+
+        public AccountController(CafeteriaContext context)
+        {
+            _context = context;
+        }
+
+        public IActionResult Login()
         {
             return View();
         }
 
-        // POST: /Account/Login
         [HttpPost]
-        [ValidateAntiForgeryToken]
-        public ActionResult Login(User model)
+        public async Task<IActionResult> Login(User model)
         {
             if (ModelState.IsValid)
             {
-                if (model.Username == "admin" && model.Password == "1234")
+                // Buscar usuario en la base de datos
+                var usuario = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Username == model.Username && u.Password == model.Password);
+
+                if (usuario != null)
                 {
-                    HttpContext.Session.SetString("User", model.Username);
+                    HttpContext.Session.SetString("User", usuario.Username);
                     return RedirectToAction("Index", "Productos");
                 }
 
-                ModelState.AddModelError("", "Usuario o contraseña incorrectos.");
+                ModelState.AddModelError("", "Usuario o contraseña incorrectos");
             }
 
             return View(model);
         }
 
-        public ActionResult Logout()
+        public IActionResult Logout()
         {
             HttpContext.Session.Clear();
             return RedirectToAction("Login");
         }
-
     }
 }
